@@ -245,7 +245,7 @@ impl AnalyticsAggregatorContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Env};
+    use soroban_sdk::{testutils::Address as _, testutils::Ledger, Env};
 
     #[test]
     fn test_analytics_register_metric_and_history() {
@@ -253,7 +253,7 @@ mod tests {
         env.mock_all_auths();
         let contract_id = env.register_contract(None, AnalyticsAggregatorContract);
         let client = AnalyticsAggregatorContractClient::new(&env, &contract_id);
-        let admin = Address::random(&env);
+        let admin = Address::generate(&env);
 
         client.initialize(&admin);
 
@@ -267,7 +267,8 @@ mod tests {
         let history = client.get_metric_history(&metric, &BucketType::Hourly, &3);
 
         assert_eq!(history.len(), 3);
-        assert_eq!(history.get(0).unwrap().value, 1500);
+        assert_eq!(history.get(0).unwrap().value, 500);
+        assert_eq!(history.get(1).unwrap().value, 1000);
     }
 
     #[test]
@@ -276,7 +277,7 @@ mod tests {
         env.mock_all_auths();
         let contract_id = env.register_contract(None, AnalyticsAggregatorContract);
         let client = AnalyticsAggregatorContractClient::new(&env, &contract_id);
-        let admin = Address::random(&env);
+        let admin = Address::generate(&env);
 
         client.initialize(&admin);
 

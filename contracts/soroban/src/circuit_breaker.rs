@@ -198,7 +198,7 @@ impl CircuitBreakerContract {
 
         let info = GuardianInfo {
             address: guardian.clone(),
-            role,
+            role: role.clone(),
             added_at: env.ledger().timestamp(),
             active: true,
         };
@@ -207,7 +207,7 @@ impl CircuitBreakerContract {
         env.storage().instance().set(&DataKey::Guardians, &guardians);
 
         env.events().publish(
-            (symbol_short!(EVENT_GUARDIAN_ADDED),),
+            ("cb_guardian_added",),
             (guardian, role),
         );
     }
@@ -237,7 +237,7 @@ impl CircuitBreakerContract {
         env.storage().instance().set(&DataKey::Guardians, &new_guardians);
 
         env.events().publish(
-            (symbol_short!(EVENT_GUARDIAN_REMOVED),),
+            ("cb_guardian_removed",),
             guardian,
         );
     }
@@ -274,7 +274,7 @@ impl CircuitBreakerContract {
             .set(&DataKey::PauseState(pause_id), &pause_state);
 
         env.events().publish(
-            (symbol_short!(EVENT_PAUSE_TRIGGERED),),
+            ("cb_pause_triggered",),
             (pause_id, PauseScope::Global, PauseLevel::Full),
         );
     }
@@ -302,7 +302,7 @@ impl CircuitBreakerContract {
             .set(&DataKey::PauseState(pause_id), &pause_state);
 
         env.events().publish(
-            (symbol_short!(EVENT_PAUSE_TRIGGERED),),
+            ("cb_pause_triggered",),
             (pause_id, PauseScope::Bridge(bridge_id), PauseLevel::Partial),
         );
     }
@@ -330,7 +330,7 @@ impl CircuitBreakerContract {
             .set(&DataKey::PauseState(pause_id), &pause_state);
 
         env.events().publish(
-            (symbol_short!(EVENT_PAUSE_TRIGGERED),),
+            ("cb_pause_triggered",),
             (pause_id, PauseScope::Asset(asset_code), PauseLevel::Warning),
         );
     }
@@ -340,7 +340,7 @@ impl CircuitBreakerContract {
     pub fn request_recovery(env: Env, caller: Address, pause_id: u32) {
         Self::check_guardian_permission(&env, &caller, GuardianRole::StandardGuardian);
 
-        let pause_state = Self::get_pause_state(&env, pause_id);
+        let pause_state = Self::get_pause_state(env.clone(), pause_id);
         assert!(pause_state.level != PauseLevel::None, "pause not active");
 
         let mut recovery_requests: Vec<RecoveryRequest> = env
@@ -359,7 +359,7 @@ impl CircuitBreakerContract {
         let config = Self::get_config(&env);
         let request = RecoveryRequest {
             pause_id,
-            requested_by: caller,
+            requested_by: caller.clone(),
             timestamp: env.ledger().timestamp(),
             approvals: 1,
             threshold: config.guardian_threshold,
@@ -369,7 +369,7 @@ impl CircuitBreakerContract {
         env.storage().instance().set(&DataKey::RecoveryRequests, &recovery_requests);
 
         env.events().publish(
-            (symbol_short!(EVENT_RECOVERY_REQUESTED),),
+            ("cb_recovery_requested",),
             (pause_id, caller),
         );
     }
@@ -384,9 +384,12 @@ impl CircuitBreakerContract {
             .unwrap_or(Vec::new(&env));
 
         let mut found = false;
-        for mut req in recovery_requests.iter() {
+        let len = recovery_requests.len();
+        for i in 0..len {
+            let mut req = recovery_requests.get(i).unwrap();
             if req.pause_id == pause_id {
                 req.approvals += 1;
+                recovery_requests.set(i, req);
                 found = true;
                 break;
             }
@@ -397,7 +400,7 @@ impl CircuitBreakerContract {
         env.storage().instance().set(&DataKey::RecoveryRequests, &recovery_requests);
 
         env.events().publish(
-            (symbol_short!(EVENT_GUARDIAN_APPROVED),),
+            ("cb_guardian_approved",),
             (pause_id, caller, "recovery"),
         );
     }
@@ -437,7 +440,7 @@ impl CircuitBreakerContract {
         env.storage().persistent().remove(&DataKey::PauseState(pause_id));
 
         env.events().publish(
-            (symbol_short!(EVENT_RECOVERY_EXECUTED),),
+            ("cb_recovery_executed",),
             pause_id,
         );
     }
@@ -463,7 +466,7 @@ impl CircuitBreakerContract {
         let config = TriggerConfig {
             alert_type: alert_type.clone(),
             threshold,
-            pause_level,
+            pause_level: pause_level.clone(),
             cooldown_period,
             last_trigger: 0,
         };
@@ -472,12 +475,10 @@ impl CircuitBreakerContract {
         env.storage().instance().set(&DataKey::TriggerConfigs, &trigger_configs);
 
         env.events().publish(
-            (symbol_short!(EVENT_TRIGGER_CONFIG_UPDATED),),
+            ("cb_trigger_updated",),
             (alert_type, threshold, pause_level),
         );
     }
-
-    // ── Whitelist Management ──────────────────────────────────────────────────
 
     pub fn add_to_address_whitelist(env: Env, caller: Address, address: Address) {
         Self::only_admin(&env, &caller);
@@ -489,7 +490,7 @@ impl CircuitBreakerContract {
             .unwrap_or(Vec::new(&env));
 
         let config = Self::get_config(&env);
-        assert!(whitelist.len() < config.max_whitelist_size as usize, "whitelist full");
+        assert!(whitelist.len() < config.max_whitelist_size, "whitelist full");
 
         // Check if already exists
         for addr in whitelist.iter() {
@@ -502,7 +503,7 @@ impl CircuitBreakerContract {
         env.storage().instance().set(&DataKey::WhitelistAddresses, &whitelist);
 
         env.events().publish(
-            (symbol_short!(EVENT_WHITELIST_UPDATED),),
+            ("cb_whitelist_updated",),
             ("address", address, true),
         );
     }
@@ -517,7 +518,7 @@ impl CircuitBreakerContract {
             .unwrap_or(Vec::new(&env));
 
         let config = Self::get_config(&env);
-        assert!(whitelist.len() < config.max_whitelist_size as usize, "whitelist full");
+        assert!(whitelist.len() < config.max_whitelist_size, "whitelist full");
 
         // Check if already exists
         for asset in whitelist.iter() {
@@ -530,7 +531,7 @@ impl CircuitBreakerContract {
         env.storage().instance().set(&DataKey::WhitelistAssets, &whitelist);
 
         env.events().publish(
-            (symbol_short!(EVENT_WHITELIST_UPDATED),),
+            ("cb_whitelist_updated",),
             ("asset", asset_code, true),
         );
     }
@@ -544,7 +545,7 @@ impl CircuitBreakerContract {
             .unwrap_or(PauseState {
                 scope: PauseScope::Global,
                 level: PauseLevel::None,
-                triggered_by: Address::from_contract_id(&[0; 32]),
+                triggered_by: env.current_contract_address(),
                 trigger_reason: String::from_str(&env, ""),
                 timestamp: 0,
                 recovery_deadline: 0,
@@ -561,7 +562,7 @@ impl CircuitBreakerContract {
             .unwrap_or(0);
 
         for i in 1..=pause_count {
-            let pause_state = Self::get_pause_state(&env, i);
+            let pause_state = Self::get_pause_state(env.clone(), i);
             if pause_state.level != PauseLevel::None {
                 match (&pause_state.scope, &scope) {
                     (PauseScope::Global, _) => return true,
@@ -655,7 +656,8 @@ impl CircuitBreakerContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::testutils::{Address as _, Env as _};
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::Env;
 
     fn create_test_env() -> Env {
         let env = Env::default();
@@ -671,47 +673,41 @@ mod tests {
         (admin, guardian1, guardian2, user)
     }
 
+    fn setup() -> (Env, Address, CircuitBreakerContractClient<'static>, Address, Address, Address, Address) {
+        let env = create_test_env();
+        let (admin, guardian1, guardian2, user) = create_test_addresses(&env);
+        let contract_id = env.register_contract(None, CircuitBreakerContract);
+        let client = CircuitBreakerContractClient::new(&env, &contract_id);
+        (env, contract_id, client, admin, guardian1, guardian2, user)
+    }
+
     #[test]
     fn test_initialization() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, _, _, _) = create_test_addresses(&env);
+        let (env, contract_id, client, admin, _, _, _) = setup();
 
-        contract.initialize(
-            env.clone(),
-            admin,
-            2, // guardian_threshold
-            3600, // recovery_delay_warning
-            7200, // recovery_delay_partial
-            14400, // recovery_delay_full
-            100 // max_whitelist_size
-        );
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
 
-        // Verify config is stored
-        assert!(env.storage().instance().has(&DataKey::Config));
+        let has_config = env.as_contract(&contract_id, || env.storage().instance().has(&DataKey::Config));
+        assert!(has_config);
     }
 
     #[test]
     #[should_panic(expected = "already initialized")]
     fn test_double_initialization() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, _, _, _) = create_test_addresses(&env);
+        let (_env, _contract_id, client, admin, _, _, _) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
-        contract.initialize(env, admin, 2, 3600, 7200, 14400, 100);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
     }
 
     #[test]
     fn test_add_guardian() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, guardian1, _, _) = create_test_addresses(&env);
+        let (_env, _contract_id, client, admin, guardian1, _, _) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
-        contract.add_guardian(env.clone(), admin, guardian1.clone(), GuardianRole::StandardGuardian);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_guardian(&admin, &guardian1, &GuardianRole::StandardGuardian);
 
-        let guardians = contract.get_guardians(env);
+        let guardians = client.get_guardians();
         assert_eq!(guardians.len(), 1);
         assert_eq!(guardians.get(0).unwrap().address, guardian1);
         assert_eq!(guardians.get(0).unwrap().role, GuardianRole::StandardGuardian);
@@ -720,134 +716,110 @@ mod tests {
     #[test]
     #[should_panic(expected = "not admin")]
     fn test_add_guardian_non_admin() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, guardian1, _, user) = create_test_addresses(&env);
+        let (_env, _contract_id, client, admin, guardian1, _, user) = setup();
 
-        contract.initialize(env.clone(), admin, guardian1.clone(), GuardianRole::StandardGuardian);
-        contract.add_guardian(env, user, guardian1, GuardianRole::StandardGuardian);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_guardian(&user, &guardian1, &GuardianRole::StandardGuardian);
     }
 
     #[test]
     fn test_pause_global() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, guardian1, _, _) = create_test_addresses(&env);
+        let (env, _contract_id, client, admin, guardian1, _, _) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
-        contract.add_guardian(env.clone(), admin, guardian1.clone(), GuardianRole::EmergencyGuardian);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_guardian(&admin, &guardian1, &GuardianRole::EmergencyGuardian);
 
         let reason = String::from_str(&env, "Test global pause");
-        contract.pause_global(env.clone(), guardian1, reason);
+        client.pause_global(&guardian1, &reason);
 
-        assert!(contract.is_paused(env, PauseScope::Global));
+        assert!(client.is_paused(&PauseScope::Global));
     }
 
     #[test]
     fn test_pause_bridge() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, guardian1, _, _) = create_test_addresses(&env);
+        let (env, _contract_id, client, admin, guardian1, _, _) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
-        contract.add_guardian(env.clone(), admin, guardian1.clone(), GuardianRole::StandardGuardian);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_guardian(&admin, &guardian1, &GuardianRole::StandardGuardian);
 
         let bridge_id = String::from_str(&env, "test-bridge");
         let reason = String::from_str(&env, "Test bridge pause");
-        contract.pause_bridge(env.clone(), guardian1, bridge_id.clone(), reason);
+        client.pause_bridge(&guardian1, &bridge_id, &reason);
 
-        assert!(contract.is_paused(env, PauseScope::Bridge(bridge_id)));
+        assert!(client.is_paused(&PauseScope::Bridge(bridge_id)));
     }
 
     #[test]
     fn test_pause_asset() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, guardian1, _, _) = create_test_addresses(&env);
+        let (env, _contract_id, client, admin, guardian1, _, _) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
-        contract.add_guardian(env.clone(), admin, guardian1.clone(), GuardianRole::StandardGuardian);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_guardian(&admin, &guardian1, &GuardianRole::StandardGuardian);
 
         let asset_code = String::from_str(&env, "USDC");
         let reason = String::from_str(&env, "Test asset pause");
-        contract.pause_asset(env.clone(), guardian1, asset_code.clone(), reason);
+        client.pause_asset(&guardian1, &asset_code, &reason);
 
-        assert!(contract.is_paused(env, PauseScope::Asset(asset_code)));
+        assert!(client.is_paused(&PauseScope::Asset(asset_code)));
     }
 
     #[test]
     #[should_panic(expected = "insufficient guardian permissions")]
     fn test_pause_non_guardian() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, _, _, user) = create_test_addresses(&env);
+        let (env, _contract_id, client, admin, _guardian1, _guardian2, user) = setup();
 
-        contract.initialize(env.clone(), admin, 2, 3600, 7200, 14400, 100);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
 
         let reason = String::from_str(&env, "Test pause");
-        contract.pause_global(env, user, reason);
+        client.pause_global(&user, &reason);
     }
 
     #[test]
     fn test_recovery_flow() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, guardian1, guardian2, _) = create_test_addresses(&env);
+        let (env, _contract_id, client, admin, guardian1, guardian2, _) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
-        contract.add_guardian(env.clone(), admin.clone(), guardian1.clone(), GuardianRole::EmergencyGuardian);
-        contract.add_guardian(env.clone(), admin, guardian2.clone(), GuardianRole::StandardGuardian);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_guardian(&admin, &guardian1, &GuardianRole::EmergencyGuardian);
+        client.add_guardian(&admin, &guardian2, &GuardianRole::StandardGuardian);
 
-        // Pause
         let reason = String::from_str(&env, "Test pause");
-        contract.pause_global(env.clone(), guardian1.clone(), reason);
+        client.pause_global(&guardian1, &reason);
 
-        // Request recovery
-        contract.request_recovery(env.clone(), guardian2.clone(), 1);
+        client.request_recovery(&guardian2, &1);
+        client.approve_recovery(&guardian1, &1);
+        client.execute_recovery(&guardian2, &1);
 
-        // Approve recovery
-        contract.approve_recovery(env.clone(), guardian1, 1);
-
-        // Execute recovery
-        contract.execute_recovery(env.clone(), guardian2, 1);
-
-        assert!(!contract.is_paused(env, PauseScope::Global));
+        assert!(!client.is_paused(&PauseScope::Global));
     }
 
     #[test]
     fn test_whitelist_address() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, _, _, user) = create_test_addresses(&env);
+        let (_env, _contract_id, client, admin, _, _, user) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
-        contract.add_to_address_whitelist(env.clone(), admin, user.clone());
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_to_address_whitelist(&admin, &user);
 
-        assert!(contract.is_whitelisted_address(env, user));
+        assert!(client.is_whitelisted_address(&user));
     }
 
     #[test]
     fn test_whitelist_asset() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, _, _, _) = create_test_addresses(&env);
+        let (env, _contract_id, client, admin, _, _, _) = setup();
 
-        contract.initialize(env.clone(), admin.clone(), 2, 3600, 7200, 14400, 100);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
 
         let asset_code = String::from_str(&env, "USDC");
-        contract.add_asset_to_whitelist(env.clone(), admin, asset_code.clone());
+        client.add_asset_to_whitelist(&admin, &asset_code);
 
-        assert!(contract.is_whitelisted_asset(env, asset_code));
+        assert!(client.is_whitelisted_asset(&asset_code));
     }
 
     #[test]
     #[should_panic(expected = "not admin")]
     fn test_whitelist_non_admin() {
-        let env = create_test_env();
-        let contract = CircuitBreakerContract {};
-        let (admin, guardian1, _, user) = create_test_addresses(&env);
+        let (_env, _contract_id, client, admin, guardian1, _, user) = setup();
 
-        contract.initialize(env.clone(), admin, 2, 3600, 7200, 14400, 100);
-        contract.add_to_address_whitelist(env, user, guardian1);
+        client.initialize(&admin, &2, &3600, &7200, &14400, &100);
+        client.add_to_address_whitelist(&user, &guardian1);
     }
 }
