@@ -170,7 +170,10 @@ fn deterministic_fuzz_relay_message_classifies_signature_failures() {
         }
     }
 
-    assert!(invalid_signature_classes > 0, "expected invalid signature coverage");
+    assert!(
+        invalid_signature_classes > 0,
+        "expected invalid signature coverage"
+    );
     println!("fuzz summary: invalid_signature_classes={invalid_signature_classes}");
 }
 
@@ -218,7 +221,10 @@ fn deterministic_fuzz_batch_relay_reports_mixed_outcomes() {
             BytesN::from_array(&env, &invalid_sig_bytes)
         };
 
-        batch.push_back(BatchRelayItem { message_id, signature });
+        batch.push_back(BatchRelayItem {
+            message_id,
+            signature,
+        });
     }
 
     let result = client.batch_relay(&operator, &batch);
