@@ -301,6 +301,10 @@ Use the **Feature Request** template. Include:
 - **Your proposed solution** and any alternatives you considered
 - **Scope** — is this a small addition or a large redesign?
 
+### Change requests
+
+For changes that don't fit as a simple bug report or feature request — architecture decisions, refactoring proposals, dependency upgrades, or process changes — use the [Change Request Form](.github/ISSUE_TEMPLATE/change_request.yml). It provides a structured template for documenting the problem, scope, impact, and approval status.
+
 ### Security vulnerabilities
 
 **Do not open a public issue for security vulnerabilities.** Email **security@stellarbridgewatch.io** with details. We follow responsible disclosure — you'll receive a response within 48 hours and public credit once the fix is released (if you want it).
