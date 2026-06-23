@@ -83,6 +83,9 @@ jobs:
           printf 'lint-backend\tnpm --workspace=backend run lint\tbackend-lint.log\n' >> "$COMMAND_LOG_DIR/COMMANDS.tsv"
           npm --workspace=backend run lint 2>&1 | tee "$COMMAND_LOG_DIR/backend-lint.log"
 
+      - name: Validate API fixtures
+        run: npm --workspace=backend run fixtures:validate
+
       - name: Build backend
         run: |
           set -o pipefail
