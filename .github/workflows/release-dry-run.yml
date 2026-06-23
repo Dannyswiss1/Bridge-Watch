@@ -13,11 +13,23 @@ on:
       - "backend/**"
       - "frontend/**"
       - ".github/workflows/release-dry-run.yml"
+      - ".github/workflows/release-shield.yml"
 
 jobs:
+  release-shield:
+    name: Release Shield Dry-Run
+    uses: ./.github/workflows/release-shield.yml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || 'v0.0.0-dryrun' }}
+      enforce_external_gates: false
+
   validate-version:
     name: Validate Version
     runs-on: ubuntu-latest
+    needs: release-shield
 
     outputs:
       version: ${{ steps.version.outputs.value }}

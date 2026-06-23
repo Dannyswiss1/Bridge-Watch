@@ -4,6 +4,9 @@ Use this checklist for every production deployment so readiness, verification, r
 
 ## Release Gates
 
+- Confirm the automated `Release Shield` job reports **PROMOTION APPROVED** before creating or promoting a release.
+- Configure `RELEASE_HEALTH_URLS` with comma-separated readiness endpoints (for example, production and critical dependency readiness URLs).
+- Confirm `RELEASE_REQUIRED_WORKFLOWS` matches the workflow names that protect the release commit; the default is `CI,Code Quality,Security Scanning`.
 - Confirm the release owner, reviewer, and on-call engineer are assigned before work starts.
 - Confirm the deployment window, target environment, and rollback owner are documented in the release ticket.
 - Confirm the PR references all closing issues and includes the release notes summary.
@@ -27,6 +30,18 @@ Use this checklist for every production deployment so readiness, verification, r
 - Tag the release commit or record the deploy SHA before rollout.
 - Record backend image tag, frontend build identifier, contract artifact version, and migration batch number.
 - Store the final deployment metadata in the release ticket or deployment log.
+
+## Emergency Override
+
+Use the release shield override only for an incident or time-critical recovery where the failed gate is understood and separately mitigated.
+
+1. Dispatch the `Release` workflow manually.
+2. Enable `override_release_shield`.
+3. Enter an audit reason of at least 10 characters, including the incident or change reference.
+4. Confirm the operator has repository `maintain` or `admin` permission.
+5. Copy the shield report and override reason into the release ticket.
+
+Tag-triggered releases cannot bypass the shield. An unauthorized or unexplained override remains blocked.
 
 ## Data Migration Checks
 
