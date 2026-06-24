@@ -16,13 +16,19 @@ export const navGroups: NavGroup[] = [
     label: "Monitoring",
     items: [
       { to: "/dashboard", label: "Dashboard", description: "Real-time asset health overview" },
+      { to: "/incidents", label: "Incidents", description: "Incident heatmap and clustering" },
+      { to: "/incidents/replay/demo", label: "Incident Replay", description: "Replay incident event timelines" },
       { to: "/bridges", label: "Bridges", description: "Bridge performance and incidents" },
+      { to: "/bridge-topology", label: "Topology", description: "Explore bridge network graph and connections" },
       { to: "/transactions", label: "Transactions", description: "Recent bridge transfer activity" },
       { to: "/reconciliation", label: "Reconciliation", description: "Supply drift and reserve backing triage" },
       { to: "/analytics", label: "Analytics", description: "Trend analysis and health scoring" },
+      { to: "/analytics/metric-builder", label: "Metric Builder", description: "Create and save custom SQL metrics" },
       { to: "/data-provenance", label: "Provenance", description: "Trace metric lineage from source to destination" },
       { to: "/watchlist", label: "Watchlist", description: "Tracked assets and alerts" },
       { to: "/reports", label: "Reports", description: "Operational reporting views" },
+      { to: "/bridge-health-timeline", label: "Health Timeline", description: "Bridge health score progression over time" },
+      { to: "/asset-comparison", label: "Asset Matrix", description: "Compare multiple assets across key metrics" },
     ],
   },
   {
@@ -38,9 +44,9 @@ export const navGroups: NavGroup[] = [
         description: "Manage alert dispatch routing and audit",
       },
       {
-        to: "/alert-sandbox",
-        label: "Alert Sandbox",
-        description: "Dry-run alert rules against synthetic data before enabling in production",
+        to: "/alert-playbooks",
+        label: "Alert Playbooks",
+        description: "Runbooks and remediation steps for triggered alerts",
       },
       {
         to: "/admin/access-audit",
@@ -48,6 +54,8 @@ export const navGroups: NavGroup[] = [
         description: "Review operator roles, permissions, and access history",
       },
       { to: "/settings", label: "Settings", description: "Notification and dashboard preferences" },
+      { to: "/export-scheduler", label: "Export Scheduler", description: "Schedule recurring report exports" },
+      { to: "/metrics-sidebar", label: "Pinned Metrics", description: "Pin and manage frequently viewed metrics" },
     ],
   },
 ];
