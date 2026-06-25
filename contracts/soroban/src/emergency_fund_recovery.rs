@@ -3,10 +3,9 @@
  * Allows authorized parties to recover funds from the contract in emergency scenarios.
  * Includes recovery authorization, fund destination management, time locks, and event emission.
  */
-
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, String, Vec,
-    token::Client as TokenClient,
+    contract, contracterror, contractimpl, contracttype, symbol_short,
+    token::Client as TokenClient, Address, Env, String, Symbol, Vec,
 };
 
 const EVENT_RECOVERY_INITIATED: Symbol = symbol_short!("rec_init");
@@ -88,6 +87,7 @@ pub enum RecoveryDataKey {
 }
 
 /// Emergency Fund Recovery Service
+#[contract]
 pub struct EmergencyFundRecovery;
 
 #[contractimpl]
@@ -120,9 +120,10 @@ impl EmergencyFundRecovery {
         env.storage()
             .instance()
             .set(&RecoveryDataKey::TotalRecovered, &0i128);
-        env.storage()
-            .instance()
-            .set(&RecoveryDataKey::AuthorizedRecoverers, &Vec::<Address>::new(&env));
+        env.storage().instance().set(
+            &RecoveryDataKey::AuthorizedRecoverers,
+            &Vec::<Address>::new(&env),
+        );
         env.storage()
             .instance()
             .set(&RecoveryDataKey::RecoveryHistory, &Vec::<u64>::new(&env));
@@ -214,9 +215,7 @@ impl EmergencyFundRecovery {
         };
 
         let key = (&user,);
-        env.storage()
-            .persistent()
-            .set(&key, &authorization);
+        env.storage().persistent().set(&key, &authorization);
 
         Ok(())
     }
@@ -300,7 +299,7 @@ impl EmergencyFundRecovery {
             approvals: Vec::new(&env),
             required_approvals: 1, // Will be set based on approvers
             executed_at: 0,
-            executed_by: Address::generate(&env),
+            executed_by: initiator.clone(),
         };
 
         // Store recovery
@@ -377,14 +376,12 @@ impl EmergencyFundRecovery {
         recovery.approvals.push_back(approver.clone());
 
         // Check if we have enough approvals
-        if recovery.approvals.len() >= recovery.required_approvals as usize {
+        if recovery.approvals.len() >= recovery.required_approvals {
             recovery.status = RecoveryStatus::Approved;
         }
 
         // Update recovery
-        env.storage()
-            .persistent()
-            .set(&key, &recovery);
+        env.storage().persistent().set(&key, &recovery);
 
         // Emit event
         env.events().publish(
@@ -448,16 +445,18 @@ impl EmergencyFundRecovery {
 
         // Transfer funds via token contract
         let token_client = TokenClient::new(&env, &recovery.token_address);
-        token_client.transfer(&env.current_contract_address(), &recovery.destination, &recovery.amount);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &recovery.destination,
+            &recovery.amount,
+        );
 
         // Update recovery status
         recovery.status = RecoveryStatus::Executed;
         recovery.executed_at = current_time;
         recovery.executed_by = executor.clone();
 
-        env.storage()
-            .persistent()
-            .set(&key, &recovery);
+        env.storage().persistent().set(&key, &recovery);
 
         // Update total recovered
         let mut total: i128 = env
@@ -525,9 +524,7 @@ impl EmergencyFundRecovery {
         // Cancel recovery
         recovery.status = RecoveryStatus::Cancelled;
 
-        env.storage()
-            .persistent()
-            .set(&key, &recovery);
+        env.storage().persistent().set(&key, &recovery);
 
         // Emit event
         env.events().publish(

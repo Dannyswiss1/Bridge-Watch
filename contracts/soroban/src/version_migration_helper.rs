@@ -6,7 +6,6 @@
  * Builds upon the existing MigrationHelper in migration.rs with additional
  * features for production-grade state migrations.
  */
-
 use soroban_sdk::{
     contracttype, symbol_short, vec, Address, Env, Map, String as SorobanString, Vec,
 };
@@ -229,23 +228,25 @@ impl EnhancedMigrationHelper {
             .get::<SorobanString, Vec<Address>>(&migrators_key)
             .ok_or(MigrationError::UnauthorizedMigrator)?;
 
-        let is_authorized = migrators.iter().any(|addr| addr == &migrator);
+        let is_authorized = migrators.iter().any(|addr| addr == migrator);
         if !is_authorized {
             return Err(MigrationError::UnauthorizedMigrator);
         }
 
         // Check if migration already in progress
         let in_progress_key = SorobanString::from_str(env, keys::MIGRATION_IN_PROGRESS);
-        if let Some(in_progress) = env.storage().instance().get::<SorobanString, bool>(&in_progress_key) {
+        if let Some(in_progress) = env
+            .storage()
+            .instance()
+            .get::<SorobanString, bool>(&in_progress_key)
+        {
             if in_progress {
                 return Err(MigrationError::MigrationInProgress);
             }
         }
 
         // Set migration flag
-        env.storage()
-            .instance()
-            .set(&in_progress_key, &true);
+        env.storage().instance().set(&in_progress_key, &true);
 
         Ok(())
     }
@@ -271,7 +272,7 @@ impl EnhancedMigrationHelper {
 
         // Record migration
         let record = MigrationRecord {
-            from_version,
+            from_version: from_version.clone(),
             to_version: to_version.clone(),
             migrated_at: env.ledger().timestamp(),
             migrated_by: migrator,
@@ -299,8 +300,14 @@ impl EnhancedMigrationHelper {
         env.events().publish(
             (symbol_short!("migration"), "completed"),
             (
-                ("from_version", format!("{}.{}.{}", from_version.major, from_version.minor, from_version.patch)),
-                ("to_version", format!("{}.{}.{}", to_version.major, to_version.minor, to_version.patch)),
+                (
+                    "from_version",
+                    (from_version.major, from_version.minor, from_version.patch),
+                ),
+                (
+                    "to_version",
+                    (to_version.major, to_version.minor, to_version.patch),
+                ),
             ),
         );
 
@@ -435,7 +442,7 @@ impl EnhancedMigrationHelper {
             .unwrap_or_else(|| vec![env]);
 
         // Check if already added
-        if migrators.iter().any(|addr| addr == &new_migrator) {
+        if migrators.iter().any(|addr| addr == new_migrator) {
             return Ok(());
         }
 
@@ -464,15 +471,16 @@ impl EnhancedMigrationHelper {
             .get::<SorobanString, Vec<Address>>(&migrators_key)
             .ok_or(MigrationError::UnauthorizedMigrator)?;
 
-        let updated = migrators
-            .iter()
-            .filter(|addr| addr != &migrator)
-            .collect::<Vec<_>>();
+        let mut updated = Vec::new(env);
+        for addr in migrators.iter() {
+            if addr != migrator {
+                updated.push_back(addr);
+            }
+        }
 
-        env.storage().persistent().set(
-            &migrators_key,
-            &Vec::from_slice(env, &updated),
-        );
+        env.storage()
+            .persistent()
+            .set::<SorobanString, Vec<Address>>(&migrators_key, &updated);
 
         Ok(())
     }
@@ -480,11 +488,7 @@ impl EnhancedMigrationHelper {
     /**
      * Emit migration event for off-chain monitoring
      */
-    pub fn emit_migration_event(
-        env: &Env,
-        from: &MigrationVersion,
-        to: &MigrationVersion,
-    ) {
+    pub fn emit_migration_event(env: &Env, from: &MigrationVersion, to: &MigrationVersion) {
         env.events().publish(
             (
                 symbol_short!("migration"),
@@ -499,7 +503,7 @@ impl EnhancedMigrationHelper {
 
 // ─── Version Policy Documentation ──────────────────────────────────────────
 
-/**
+/*
  * ## Version Migration Policy
  *
  * ### Versioning Scheme
